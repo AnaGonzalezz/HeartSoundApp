@@ -1,0 +1,152 @@
+.stream-container {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, var(--grey-light-1), #ffffff);
+  padding: 3rem 1rem;
+}
+
+.stream-content {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.stream-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.stream-subtitle {
+  color: var(--grey-dark);
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.125rem;
+}
+
+.stream-card {
+  margin-bottom: 2rem;
+}
+
+.stream-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Canvas */
+.stream-canvas-container {
+  background-color: var(--grey-light-1);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.stream-canvas-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.stream-canvas {
+  width: 100%;
+  border: 2px solid var(--primary-light);
+  border-radius: 0.5rem;
+  background-color: var(--white);
+  display: block;
+}
+
+/* Metrics */
+.stream-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.metric-card {
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--white);
+}
+
+.metric-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+}
+
+.metric-info {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.metric-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  opacity: 0.9;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.metric-unit {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+/* Controls */
+.stream-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Info Box */
+.stream-info {
+  background-color: var(--grey-light-1);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.stream-info h4 {
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.stream-info ul {
+  list-style: none;
+  color: var(--grey-dark);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.stream-info li {
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stream-title {
+    font-size: 1.875rem;
+  }
+
+  .stream-canvas {
+    max-width: 100%;
+  }
+
+  .stream-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-value {
+    font-size: 1.5rem;
+  }
+}

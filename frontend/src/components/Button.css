@@ -1,0 +1,90 @@
+.btn {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn:focus {
+  outline: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Variants */
+.btn--primary {
+  background-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0.3rem 0.3rem 0.6rem var(--grey-light-2), -0.2rem -0.2rem 0.5rem var(--white);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0.5rem 0.5rem 1rem var(--grey-light-2), -0.2rem -0.2rem 0.5rem var(--white);
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: inset 0.2rem 0.2rem 0.5rem var(--grey-light-2), inset -0.2rem -0.2rem 0.5rem var(--white);
+}
+
+.btn--secondary {
+  background-color: var(--grey-light-1);
+  color: var(--grey-dark);
+  border: 2px solid var(--grey-light-2);
+  box-shadow: 0.3rem 0.3rem 0.6rem var(--grey-light-2), -0.2rem -0.2rem 0.5rem var(--white);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background-color: var(--grey-light-2);
+  color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.btn--secondary:active:not(:disabled) {
+  box-shadow: inset 0.2rem 0.2rem 0.5rem var(--grey-light-2), inset -0.2rem -0.2rem 0.5rem var(--white);
+}
+
+.btn--outline {
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  background-color: transparent;
+}
+
+.btn--outline:hover:not(:disabled) {
+  background-color: var(--primary);
+  color: var(--white);
+}
+
+.btn--danger {
+  background-color: #ef4444;
+  color: var(--white);
+  box-shadow: 0.3rem 0.3rem 0.6rem var(--grey-light-2), -0.2rem -0.2rem 0.5rem var(--white);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-2px);
+}
+
+/* Sizes */
+.btn--sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.btn--md {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+.btn--lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
