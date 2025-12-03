@@ -21,28 +21,33 @@ export default function LiveMonitor({ onBack }) {
   const waveformDataRef = useRef([]);
   const MAX_POINTS = 300;
 
-  // Sistema de detección de latidos
+  // Sistema de detección de latidos mejorado
   const beatDetectorRef = useRef({
     buffer: [],
-    bufferSize: 30,
+    bufferSize: 40, // Buffer más manejable
     lastBeatTime: 0,
     beatTimes: [],
-    threshold: 0.02,
-    adaptiveThreshold: 0.02,
-    minInterval: 300,  // Mínimo 300ms entre latidos (200 BPM máx)
-    maxInterval: 1500, // Máximo 1.5s entre latidos (40 BPM mín)
+    recentBPMs: [],
+    threshold: 0.008, // Umbral más bajo para detectar mejor
+    adaptiveThreshold: 0.008,
+    minInterval: 333,
+    maxInterval: 1500, // Más permisivo
     peakValue: 0,
-    isAboveThreshold: false
+    isAboveThreshold: false,
+    noiseFloor: 0.005, // Piso de ruido más bajo
+    signalToNoiseRatio: 2.5, // Menos restrictivo
+    consecutivePeaksCount: 0
   });
 
-  // Calcular BPM desde intervalos de latidos
+  // Calcular BPM mejorado con validación robusta
   const calculateBPM = useCallback((beatTimes) => {
-    if (beatTimes.length < 3) return null;
+    if (beatTimes.length < 3) return null; // Solo necesitamos 3 latidos
 
-    // Calcular intervalos entre latidos consecutivos
+    // Calcular intervalos RR (entre latidos consecutivos)
     const intervals = [];
     for (let i = 1; i < beatTimes.length; i++) {
       const interval = beatTimes[i] - beatTimes[i - 1];
+      // Rango más amplio pero fisiológico
       if (interval >= 300 && interval <= 1500) {
         intervals.push(interval);
       }
@@ -50,20 +55,36 @@ export default function LiveMonitor({ onBack }) {
 
     if (intervals.length < 2) return null;
 
-    // Usar mediana para robustez contra outliers
+    // Usar mediana directamente (más simple y robusto)
     const sorted = [...intervals].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
+    const medianInterval = sorted[Math.floor(sorted.length / 2)];
     
-    const calculatedBpm = Math.round(60000 / median);
+    const calculatedBpm = Math.round(60000 / medianInterval);
     
-    // Validar rango razonable
+    // Validar rango fisiológico
     if (calculatedBpm >= 40 && calculatedBpm <= 200) {
+      // Suavizar con promedio de últimos BPMs
+      const detector = beatDetectorRef.current;
+      detector.recentBPMs.push(calculatedBpm);
+      
+      // Mantener solo últimos 4 BPMs
+      if (detector.recentBPMs.length > 4) {
+        detector.recentBPMs.shift();
+      }
+
+      // Promedio simple si tenemos suficientes mediciones
+      if (detector.recentBPMs.length >= 2) {
+        const avg = detector.recentBPMs.reduce((a, b) => a + b, 0) / detector.recentBPMs.length;
+        return Math.round(avg);
+      }
+      
       return calculatedBpm;
     }
+    
     return null;
   }, []);
 
-  // Procesar audio y detectar latidos
+  // Procesar audio y detectar latidos con algoritmo mejorado
   const processAudio = useCallback(() => {
     const analyser = analyserRef.current;
     if (!analyser) return { amplitude: 0, isBeat: false };
@@ -71,7 +92,7 @@ export default function LiveMonitor({ onBack }) {
     const dataArray = new Uint8Array(analyser.fftSize);
     analyser.getByteTimeDomainData(dataArray);
 
-    // Calcular amplitud RMS
+    // Calcular amplitud RMS (Root Mean Square)
     let sumSquares = 0;
     for (let i = 0; i < dataArray.length; i++) {
       const normalized = (dataArray[i] - 128) / 128;
@@ -82,7 +103,7 @@ export default function LiveMonitor({ onBack }) {
     // Actualizar nivel de señal para UI
     setSignalLevel(Math.min(rms * 500, 100));
 
-    // Sistema de detección de latidos
+    // Sistema de detección de latidos mejorado
     const detector = beatDetectorRef.current;
     const now = performance.now();
     let isBeat = false;
@@ -93,34 +114,56 @@ export default function LiveMonitor({ onBack }) {
       detector.buffer.shift();
     }
 
-    // Calcular media del buffer para umbral adaptativo
+    // Calcular estadísticas del buffer cuando esté lleno
     if (detector.buffer.length >= detector.bufferSize) {
-      const avg = detector.buffer.reduce((a, b) => a + b, 0) / detector.buffer.length;
-      const max = Math.max(...detector.buffer);
+      // Calcular percentiles para umbral más robusto
+      const sortedBuffer = [...detector.buffer].sort((a, b) => a - b);
+      const p10 = sortedBuffer[Math.floor(sortedBuffer.length * 0.1)];
+      const p50 = sortedBuffer[Math.floor(sortedBuffer.length * 0.5)]; // Mediana
+      const p90 = sortedBuffer[Math.floor(sortedBuffer.length * 0.9)];
       
-      // Umbral adaptativo: promedio + porcentaje del máximo
+      // Actualizar piso de ruido (percentil 10)
+      detector.noiseFloor = Math.max(p10, 0.003);
+      
+      // Umbral adaptativo menos agresivo
+      const dynamicRange = p90 - p10;
       detector.adaptiveThreshold = Math.max(
         detector.threshold,
-        avg * 1.5,
-        max * 0.4
+        p50 + dynamicRange * 0.25, // 25% por encima de la mediana
+        detector.noiseFloor * detector.signalToNoiseRatio
       );
     }
 
-    // Detectar cruce ascendente del umbral (inicio de latido)
+    // Verificar tiempo desde último latido
     const timeSinceLastBeat = now - detector.lastBeatTime;
 
-    if (rms > detector.adaptiveThreshold && !detector.isAboveThreshold) {
-      if (timeSinceLastBeat > detector.minInterval) {
-        // ¡LATIDO DETECTADO!
+    // Detectar pico: debe ser un máximo local
+    const isLocalMaximum = detector.buffer.length >= 3 && 
+      rms > detector.buffer[detector.buffer.length - 2];
+
+    // Condiciones para detectar latido (más permisivas)
+    if (rms > detector.adaptiveThreshold && 
+        !detector.isAboveThreshold &&
+        isLocalMaximum &&
+        timeSinceLastBeat > detector.minInterval) {
+      
+      // Verificar que el pico es significativo
+      const sortedBuffer = [...detector.buffer].sort((a, b) => a - b);
+      const p50 = sortedBuffer[Math.floor(sortedBuffer.length * 0.5)];
+      const peakProminence = rms - p50;
+      
+      if (peakProminence > detector.threshold || rms > detector.adaptiveThreshold * 1.2) {
+        // ¡LATIDO VÁLIDO DETECTADO!
         isBeat = true;
         detector.lastBeatTime = now;
         detector.isAboveThreshold = true;
         detector.peakValue = rms;
+        detector.consecutivePeaksCount++;
 
         // Guardar tiempo del latido
         detector.beatTimes.push(now);
         
-        // Mantener solo últimos 10 latidos
+        // Mantener ventana de 10 latidos
         if (detector.beatTimes.length > 10) {
           detector.beatTimes.shift();
         }
@@ -128,23 +171,32 @@ export default function LiveMonitor({ onBack }) {
         // Actualizar contador
         setBeatCount(prev => prev + 1);
 
-        // Calcular BPM
-        const newBpm = calculateBPM(detector.beatTimes);
-        if (newBpm) {
-          setBpm(newBpm);
+        // Calcular BPM con menos restricciones
+        if (detector.consecutivePeaksCount >= 2) {
+          const newBpm = calculateBPM(detector.beatTimes);
+          if (newBpm) {
+            setBpm(newBpm);
+          }
         }
       }
     }
 
-    // Reset cuando baja del umbral
-    if (rms < detector.adaptiveThreshold * 0.6) {
+    // Reset cuando la señal baja significativamente del umbral
+    if (rms < detector.adaptiveThreshold * 0.5) {
       detector.isAboveThreshold = false;
     }
 
-    // Limpiar si no hay actividad
-    if (timeSinceLastBeat > detector.maxInterval * 2) {
+    // Limpiar si hay pausa prolongada (más de 3 segundos)
+    if (timeSinceLastBeat > 3000) {
       detector.beatTimes = [];
+      detector.recentBPMs = [];
+      detector.consecutivePeaksCount = 0;
       setBpm(null);
+    }
+
+    // Reset contador si el intervalo es inusualmente largo
+    if (timeSinceLastBeat > detector.maxInterval * 1.5) {
+      detector.consecutivePeaksCount = 0;
     }
 
     return { amplitude: rms, isBeat };
@@ -303,15 +355,17 @@ export default function LiveMonitor({ onBack }) {
 
       const source = audioContext.createMediaStreamSource(stream);
 
-      // Filtro paso alto (elimina frecuencias muy bajas / ruido)
+      // Filtro paso alto (elimina frecuencias muy bajas como ruido de fondo)
       const highpassFilter = audioContext.createBiquadFilter();
       highpassFilter.type = "highpass";
-      highpassFilter.frequency.value = 20;
+      highpassFilter.frequency.value = 20; // Menos restrictivo
+      highpassFilter.Q.value = 0.5;
 
-      // Filtro paso bajo (elimina frecuencias altas / ruido)
+      // Filtro paso bajo (elimina frecuencias altas pero permite escuchar)
       const lowpassFilter = audioContext.createBiquadFilter();
       lowpassFilter.type = "lowpass";
-      lowpassFilter.frequency.value = 200;
+      lowpassFilter.frequency.value = 250; // Más permisivo para escuchar
+      lowpassFilter.Q.value = 0.5;
 
       // Nodo de ganancia
       const gainNode = audioContext.createGain();
@@ -320,8 +374,8 @@ export default function LiveMonitor({ onBack }) {
 
       // Analizador
       const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.3;
+      analyser.fftSize = 2048; // Resolución estándar
+      analyser.smoothingTimeConstant = 0.4;
       analyserRef.current = analyser;
 
       // Conectar cadena de audio para análisis
@@ -336,15 +390,19 @@ export default function LiveMonitor({ onBack }) {
       // Resetear detector de latidos
       beatDetectorRef.current = {
         buffer: [],
-        bufferSize: 30,
+        bufferSize: 40,
         lastBeatTime: 0,
         beatTimes: [],
-        threshold: 0.02,
-        adaptiveThreshold: 0.02,
-        minInterval: 300,
+        recentBPMs: [],
+        threshold: 0.008,
+        adaptiveThreshold: 0.008,
+        minInterval: 333,
         maxInterval: 1500,
         peakValue: 0,
-        isAboveThreshold: false
+        isAboveThreshold: false,
+        noiseFloor: 0.005,
+        signalToNoiseRatio: 2.5,
+        consecutivePeaksCount: 0
       };
 
       // Resetear visualización
@@ -416,7 +474,7 @@ export default function LiveMonitor({ onBack }) {
     };
   }, [stopMonitoring]);
 
-  // Obtener estado del BPM
+  // Obtener estado del BPM con rangos fisiológicos correctos
   const getBpmStatus = () => {
     if (!bpm) return { text: "--", className: "" };
     if (bpm < 60) return { text: "Bradicardia", className: "bradycardia" };
@@ -567,7 +625,7 @@ export default function LiveMonitor({ onBack }) {
           <li>Coloca el micrófono o estetoscopio digital cerca del pecho</li>
           <li>Mantén un ambiente silencioso para mejor detección</li>
           <li>Ajusta el volumen para escuchar los sonidos cardíacos</li>
-          <li>El BPM se calculará automáticamente tras detectar latidos</li>
+          <li>El BPM se calculará automáticamente tras detectar 2 latidos consecutivos</li>
         </ol>
       </div>
     </div>

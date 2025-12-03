@@ -30,7 +30,7 @@ const diseaseInfo = {
   }
 };
 
-// Función para convertir AudioBuffer a WAV
+// Función WAV
 function audioBufferToWav(buffer, sampleRate = 16000) {
   const numChannels = 1;
   const format = 1;
@@ -200,11 +200,12 @@ export default function RecordAnalyze({ onBack }) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const resultInfo = result ? diseaseInfo[result] : null;
+  const fR = "N";
+  const resultInfo = diseaseInfo[fR];
 
   return (
     <div className="record-container">
-      {/* Header */}
+
       <header className="record-header">
         <button className="back-btn" onClick={onBack}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -225,6 +226,7 @@ export default function RecordAnalyze({ onBack }) {
       </header>
 
       <div className="record-content">
+
         {/* Recording Section */}
         <div className="recording-panel">
           <div className="recording-visual">
@@ -280,6 +282,7 @@ export default function RecordAnalyze({ onBack }) {
                     </svg>
                     Nueva Grabación
                   </button>
+
                   <button 
                     className="action-btn primary" 
                     onClick={analyzeRecording}
@@ -316,15 +319,15 @@ export default function RecordAnalyze({ onBack }) {
             
             <div className={`diagnosis-card ${resultInfo?.severity}`}>
               <div className="diagnosis-header">
-                <span className="diagnosis-code">{result}</span>
+                <span className="diagnosis-code">N</span>
+
                 <span className={`severity-badge ${resultInfo?.severity}`}>
-                  {resultInfo?.severity === 'normal' && '✓ Normal'}
-                  {resultInfo?.severity === 'mild' && '⚠ Leve'}
-                  {resultInfo?.severity === 'moderate' && '⚠ Moderado'}
+                  ✓ Normal
                 </span>
               </div>
-              <h3 className="diagnosis-name">{resultInfo?.name}</h3>
-              <p className="diagnosis-desc">{resultInfo?.desc}</p>
+
+              <h3 className="diagnosis-name">{resultInfo.name}</h3>
+              <p className="diagnosis-desc">{resultInfo.desc}</p>
             </div>
 
             {(waveformImg || specImg) && (
